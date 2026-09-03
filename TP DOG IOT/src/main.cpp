@@ -16,7 +16,7 @@ void loop() {
   printearLCD("Hola, mundo!", 0);
   delay(1000);
   printearLCD("Linea 2", 1);
-  delay(1000);
+  delay(500);
   uint16_t lectura = lecturaAnalogicaGas();
   Serial.print("Lectura del sensor de gas: ");
   Serial.println(lectura);
