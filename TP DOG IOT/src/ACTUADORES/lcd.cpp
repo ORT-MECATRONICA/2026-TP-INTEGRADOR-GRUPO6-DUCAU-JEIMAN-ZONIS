@@ -10,7 +10,6 @@ void inicializarLCD() {
 
 void setearLCD() {
     lcd.clear();
-    // Puedes agregar más configuraciones iniciales aquí
 }
 
 void printearLCD(String mensaje, int linea) {
