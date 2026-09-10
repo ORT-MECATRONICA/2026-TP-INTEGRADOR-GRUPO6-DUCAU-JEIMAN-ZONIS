@@ -2,23 +2,20 @@
 #include "main.h"
 #include <Arduino.h>
 #include "SENSORES/gas.h"
+#include "SENSORES/presencia_humana.h"
 #include "ACTUADORES/lcd.h"
-
 
 void setup() {
   Serial.begin(115200);
   escanearI2C();
   inicializarLCD();
   inicializarSensorGas();
+  inicializarSensorPresenciaHumana();
 }
 
 void loop() {
-  printearLCD("Hola, mundo!", 0);
+  Serial.println(hayPresenciaHumana());
+  Serial.println(procesarDistanciaUART());
   delay(1000);
-  printearLCD("Linea 2", 1);
-  delay(500);
-  uint16_t lectura = lecturaAnalogicaGas();
-  Serial.print("Lectura del sensor de gas: ");
-  Serial.println(lectura);
 }
 
