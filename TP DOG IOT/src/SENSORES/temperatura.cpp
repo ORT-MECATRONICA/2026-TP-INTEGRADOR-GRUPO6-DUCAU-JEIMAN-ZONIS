@@ -5,9 +5,24 @@
 
 void inicializarSensorTemperatura() {
     Wire.begin();
-    if (!sensorTemp.begin(0x76)) { // LA DIRECCIÓN PUEDE SER 0x76 o 0x77
-        Serial.println("Error al inicializar el sensor BMP280");
+    
+    // Intenta inicializar con la dirección por defecto (0x76) y el Chip ID de BMP280
+    bool estado = sensorTemp.begin(0x76);
+    
+    // Si falla, intenta con la dirección alternativa (0x77)
+    if (!estado) estado = sensorTemp.begin(0x77);
+    
+    // Si sigue fallando, intenta con el Chip ID de un BME280 (0x60)
+    // (Muchos módulos vendidos como BMP280 son en realidad BME280)
+    if (!estado) estado = sensorTemp.begin(0x76, 0x60);
+    if (!estado) estado = sensorTemp.begin(0x77, 0x60);
+    
+    if (!estado) {
+        Serial.println("Error crítico: No se encontró el sensor BMP280 ni BME280.");
+        Serial.println("Revisá las conexiones (SDA/SCL) y la alimentación.");
+       
     }
+
     sensorTemp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Modo de operación */
                   Adafruit_BMP280::SAMPLING_X2,     /* Sobremuestreo de temperatura */
                   Adafruit_BMP280::SAMPLING_X16,    /* Sobremuestreo de presión */

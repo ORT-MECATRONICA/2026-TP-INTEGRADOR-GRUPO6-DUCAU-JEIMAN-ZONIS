@@ -11,6 +11,10 @@
 #include "ACTUADORES/lcd.h"
 #include "config.h"
 
+energia datosEnergia;
+datosTemperatura datosTemperaturaActual;
+datosPresenciaHumana datosPresencia;
+
 void setup() {
   Serial.begin(115200);
   //Sensores
@@ -25,9 +29,7 @@ void setup() {
 }
 
 void loop() {
-  Serial.println(hayPresenciaHumana());
-  Serial.println(procesarDistanciaUART());
-
-  delay(1000);
+  Serial.println("Luz en porcentaje: " + String(porcentajeLuz()) + " %");
+  delay(2000);
 }
 
