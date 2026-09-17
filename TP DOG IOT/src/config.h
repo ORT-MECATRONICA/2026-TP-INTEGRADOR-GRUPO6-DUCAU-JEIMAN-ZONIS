@@ -1,6 +1,16 @@
 #pragma once
-
+//LOS PINES SON TODOS INCORRECTOS Y SOLO SE USAN PARA DEBUG.
 #define PIN_SENSOR_GAS 25
 #define PIN_SENSOR_PRESENCIA 26
+#define BOTON_1 32
+#define BOTON_2 33
+#define BOTON_3 34
+#define BOTON_4 35
+#define BOTON_5 18
+#define BOTON_6 19
+#define LED_1 27
+#define LED_2 14
+
+#define SENSOR_LUZ 36
 #define RADAR_RX_PIN 16
 #define RADAR_TX_PIN 17
