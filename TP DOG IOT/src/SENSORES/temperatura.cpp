@@ -20,7 +20,7 @@ void inicializarSensorTemperatura() {
     if (!estado) {
         Serial.println("Error crítico: No se encontró el sensor BMP280 ni BME280.");
         Serial.println("Revisá las conexiones (SDA/SCL) y la alimentación.");
-       
+        return; // Salir para no configurar un sensor que no se inicializó
     }
 
     sensorTemp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Modo de operación */

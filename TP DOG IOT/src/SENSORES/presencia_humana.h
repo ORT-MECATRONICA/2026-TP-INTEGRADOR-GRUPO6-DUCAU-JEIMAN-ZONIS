@@ -8,12 +8,16 @@ void inicializarSensorPresenciaHumana();
 
 struct datosPresenciaHumana {
   bool presencia;
-  float distancia;
-  float energia;
-  bool dinamico;
+  bool hayEstatico;
+  float distanciaEstatica;
+  float energiaEstatica;
+  bool hayDinamico;
+  float distanciaDinamica;
+  float energiaDinamica;
 };
 
 //Esta función devuelve un booleano que indica si hay presencia humana o no
-bool hayPresenciaHumana();
+//bool hayPresenciaHumana();
 
+void actualizarSensorPresencia();
 datosPresenciaHumana leerPresenciaHumana();

@@ -5,33 +5,38 @@ ld2410 sensorPresencia;
 
 
 void inicializarSensorPresenciaHumana() {
-    Serial2.begin(256000, SERIAL_8N1, RADAR_RX_PIN, RADAR_TX_PIN);
-    if (sensorPresencia.begin(Serial2)) {
+    Serial1.begin(256000, SERIAL_8N1, RADAR_RX_PIN, RADAR_TX_PIN);
+    delay(500); // Darle tiempo al sensor para iniciar (como en el código de prueba)
+    if (sensorPresencia.begin(Serial1)) {
       Serial.println(F("OK"));
+    } else {
+      Serial.println(F("Error de conexion radar"));
     }
 }
 
+void actualizarSensorPresencia() {
+    sensorPresencia.read();
+}
+
 datosPresenciaHumana leerPresenciaHumana() {
-  datosPresenciaHumana datosPresencia;
-  sensorPresencia.read();
+  datosPresenciaHumana datosPresencia = {false, false, 0.0, 0.0, false, 0.0, 0.0};
    if (sensorPresencia.isConnected()) {
     if (sensorPresencia.presenceDetected()) {
+      datosPresencia.presencia = true;
+      
       if (sensorPresencia.stationaryTargetDetected()) {
-        datosPresencia.distancia = sensorPresencia.stationaryTargetDistance();
-        datosPresencia.energia = sensorPresencia.stationaryTargetEnergy();
-        datosPresencia.presencia = true;
-        datosPresencia.dinamico = false;
+        datosPresencia.hayEstatico = true;
+        datosPresencia.distanciaEstatica = sensorPresencia.stationaryTargetDistance();
+        datosPresencia.energiaEstatica = sensorPresencia.stationaryTargetEnergy();
       }
       
       if (sensorPresencia.movingTargetDetected()) {
-        datosPresencia.dinamico = true;
-        datosPresencia.distancia = sensorPresencia.movingTargetDistance();
-        datosPresencia.energia = sensorPresencia.movingTargetEnergy();
-        datosPresencia.presencia = true;
+        datosPresencia.hayDinamico = true;
+        datosPresencia.distanciaDinamica = sensorPresencia.movingTargetDistance();
+        datosPresencia.energiaDinamica = sensorPresencia.movingTargetEnergy();
       }
     } else {
       datosPresencia.presencia = false;
-      datosPresencia.dinamico = false;
     }
   }
   return datosPresencia;
