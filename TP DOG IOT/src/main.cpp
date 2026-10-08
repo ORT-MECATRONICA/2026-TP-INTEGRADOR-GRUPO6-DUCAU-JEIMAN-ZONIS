@@ -31,30 +31,4 @@ void setup() {
 }
 
 void loop() {
-  actualizarSensorPresencia(); // Mantiene sincronizado el buffer UART del sensor
-  
-  if(millis() - tiempoAnterior > 2000){
-    tiempoAnterior = millis();
-    datosPresencia = leerPresenciaHumana();
-    if(datosPresencia.presencia == true){
-      Serial.println("Presencia detectada");
-      if (datosPresencia.hayEstatico) {
-        Serial.print("Objetivo estatico: ");
-        Serial.print(datosPresencia.distanciaEstatica);
-        Serial.print("cm energia: ");
-        Serial.print(datosPresencia.energiaEstatica);
-        Serial.print(" | ");
-      }
-      
-      if (datosPresencia.hayDinamico) {
-        Serial.print("Objetivo en movimiento: ");
-        Serial.print(datosPresencia.distanciaDinamica);
-        Serial.print("cm energia: ");
-        Serial.print(datosPresencia.energiaDinamica);
-      }
-      Serial.println();
-    } else {
-      Serial.println("No hay presencia");
-    }
-  }
 }
