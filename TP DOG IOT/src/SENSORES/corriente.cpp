@@ -4,8 +4,7 @@
 Adafruit_INA219 sensorCorriente; 
 
 void inicializarSensorCorriente() {
-    Wire.begin();
-    if (!sensorCorriente.begin()) {
+    if (!sensorCorriente.begin(&Wire1)) {
         Serial.println("Error al inicializar el sensor INA219");
     }
 }

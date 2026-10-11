@@ -5,3 +5,4 @@
 
 void inicializarLDR();
 int porcentajeLuz();
+bool LDRDigital();

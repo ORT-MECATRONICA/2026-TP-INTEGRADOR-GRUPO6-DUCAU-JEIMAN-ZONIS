@@ -1,10 +1,9 @@
 //Grupo 6 - Ducau, Jeiman & Zonis
 #include "temperatura.h"
 
- Adafruit_BMP280 sensorTemp; // I2C
+ Adafruit_BMP280 sensorTemp(&Wire1); // I2C
 
 void inicializarSensorTemperatura() {
-    Wire.begin();
     
     // Intenta inicializar con la dirección por defecto (0x76) y el Chip ID de BMP280
     bool estado = sensorTemp.begin(0x76);
