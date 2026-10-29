@@ -27,9 +27,10 @@ void setup() {
   Wire1.begin(SDA_3V3, SCL_3V3, 100000);
 
   // Inicializacion de Sensores
-  inicializarSensorGas();
+ /* inicializarSensorGas();
   inicializarSensorPresenciaHumana(); 
   inicializarSensorTemperatura();
+  */
   inicializarSensorCorriente();
 
   // Inicializacion de Actuadores
@@ -39,17 +40,15 @@ void setup() {
 }
 
 void loop() {
-  datosTemperaturaActual = actualizarTemperatura();
+ /* datosTemperaturaActual = actualizarTemperatura();
   lecturaGasActual = lecturaAnalogicaGas();
   datosPresenciaActual = leerPresenciaHumana();
   datosCorrienteActual = actualizarDatosEnergia();
   estadoLDR = LDRDigital();
-  estadoBotones datosBotonActual = leerBotones();
-  
-    Serial.println("Gas: " + String(lecturaGasActual) + 
-                   " | Temp: " + String(datosTemperaturaActual.temperatura) + " C" + 
-                   " | Radar_Sim: " + String(datosPresenciaActual.presencia) +
-                   " | Presencia: " + String(datosPresenciaActual.presencia) +
-                   " | LDR: " + String(estadoLDR) +
-                   " | Boton 1: " + String(datosBotonActual.boton1));
+  estadoBotones datosBotonActual = leerBotones(); */
+  datosCorrienteActual = actualizarDatosEnergia();
+  float corriente = datosCorrienteActual.corriente;
+  printearLCD("La corriente es", 0);
+  printearLCD(corriente,1);
+  Serial.println(" mA");
 }

@@ -11,7 +11,7 @@ void inicializarSensorCorriente() {
 
 energia actualizarDatosEnergia() {
     energia datos;
-    datos.voltaje = sensorCorriente.getBusVoltage_V();
-    datos.corriente = sensorCorriente.getCurrent_mA();
+    datos.voltaje = abs(sensorCorriente.getBusVoltage_V());
+    datos.corriente = abs(sensorCorriente.getCurrent_mA());
     return datos;
 }
