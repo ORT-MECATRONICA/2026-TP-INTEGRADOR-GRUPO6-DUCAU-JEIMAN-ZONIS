@@ -1,54 +1,72 @@
-//Grupo 6 - Ducau, Jeiman & Zonis
-#include "main.h"
+// Grupo 5: Marco Mallardo, Thiago Ducau, Ramiro Perekalski
+
 #include <Arduino.h>
 #include <Wire.h>
+#include <ld2410.h>
 
 #include "SENSORES/temperatura.h"
-#include "SENSORES/gas.h"
-#include "SENSORES/corriente.h"
-#include "SENSORES/luz.h"
-#include "SENSORES/presencia_humana.h"
-#include "ACTUADORES/interfaz.h"
-#include "ACTUADORES/lcd.h"
-#include "config.h"
+#include "config.h" // RADAR_RX_PIN, RADAR_TX_PIN, SDA_3V3, SCL_3V3
 
+#define MONITOR_SERIAL Serial
+#define RADAR_SERIAL Serial1
 
-datosTemperatura datosTemperaturaActual;
-uint16_t lecturaGasActual;
-datosPresenciaHumana datosPresenciaActual;
-energia datosCorrienteActual;
-bool estadoLDR;
-estadoBotones datosBotonActual;
+ld2410 radar;
+uint32_t ultimaLectura = 0;
 
 void setup() {
-  Serial.begin(115200);
+  MONITOR_SERIAL.begin(115200);
 
-  Wire.begin(SDA_5V, SCL_5V);
+  // El BMP280 está en el bus I2C de 3.3V
   Wire1.begin(SDA_3V3, SCL_3V3, 100000);
-
-  // Inicializacion de Sensores
- /* inicializarSensorGas();
-  inicializarSensorPresenciaHumana(); 
   inicializarSensorTemperatura();
-  */
-  inicializarSensorCorriente();
 
-  // Inicializacion de Actuadores
-  inicializarLDR();
-  inicializarInterfaz();
-  inicializarLCD();
+  RADAR_SERIAL.begin(256000, SERIAL_8N1, RADAR_RX_PIN, RADAR_TX_PIN);
+  
+  delay(500);
+  MONITOR_SERIAL.print(F("Iniciando sensor radar LD2410... "));
+ 
+  if (radar.begin(RADAR_SERIAL)) {
+    MONITOR_SERIAL.println(F("OK"));
+  } else {
+    MONITOR_SERIAL.println(F("Error de conexion"));
+  }
 }
-
+ 
 void loop() {
- /* datosTemperaturaActual = actualizarTemperatura();
-  lecturaGasActual = lecturaAnalogicaGas();
-  datosPresenciaActual = leerPresenciaHumana();
-  datosCorrienteActual = actualizarDatosEnergia();
-  estadoLDR = LDRDigital();
-  estadoBotones datosBotonActual = leerBotones(); */
-  datosCorrienteActual = actualizarDatosEnergia();
-  float corriente = datosCorrienteActual.corriente;
-  printearLCD("La corriente es", 0);
-  printearLCD(corriente,1);
-  Serial.println(" mA");
+  radar.read();
+  
+  // Reportar cada 1000ms
+  if (millis() - ultimaLectura > 1000) {
+    ultimaLectura = millis();
+
+    datosTemperatura datosTemp = actualizarTemperatura();
+    MONITOR_SERIAL.print(F("Temperatura: "));
+    MONITOR_SERIAL.print(datosTemp.temperatura);
+    MONITOR_SERIAL.print(F(" C | Presion: "));
+    MONITOR_SERIAL.print(datosTemp.presion);
+    MONITOR_SERIAL.println(F(" hPa"));
+
+    // La temperatura se imprime siempre; el radar solo si está mandando datos
+    if (!radar.isConnected()) {
+      MONITOR_SERIAL.println(F("Radar sin datos"));
+    } else if (radar.presenceDetected()) {
+      if (radar.stationaryTargetDetected()) {
+        MONITOR_SERIAL.print(F("Objetivo estatico: "));
+        MONITOR_SERIAL.print(radar.stationaryTargetDistance());
+        MONITOR_SERIAL.print(F("cm energia: "));
+        MONITOR_SERIAL.print(radar.stationaryTargetEnergy());
+        MONITOR_SERIAL.print(F(" | "));
+      }
+      
+      if (radar.movingTargetDetected()) {
+        MONITOR_SERIAL.print(F("Objetivo en movimiento: "));
+        MONITOR_SERIAL.print(radar.movingTargetDistance());
+        MONITOR_SERIAL.print(F("cm energia: "));
+        MONITOR_SERIAL.print(radar.movingTargetEnergy());
+      }
+      MONITOR_SERIAL.println();
+    } else {
+      MONITOR_SERIAL.println(F("Sin presencia"));
+    }
+  }
 }

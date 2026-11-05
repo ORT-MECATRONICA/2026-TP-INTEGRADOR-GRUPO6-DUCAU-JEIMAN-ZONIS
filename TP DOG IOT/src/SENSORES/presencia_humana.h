@@ -9,15 +9,25 @@ void inicializarSensorPresenciaHumana();
 struct datosPresenciaHumana {
   bool presencia;
   bool hayEstatico;
-  float distanciaEstatica;
-  float energiaEstatica;
+  float distanciaEstatica;   // cm
+  float energiaEstatica;     // 0-100
   bool hayDinamico;
-  float distanciaDinamica;
-  float energiaDinamica;
+  float distanciaDinamica;   // cm
+  float energiaDinamica;     // 0-100
+  bool conectado;            // false si no llegó ninguna trama válida en los últimos TIMEOUT_RADAR_MS
 };
 
-//Esta función devuelve un booleano que indica si hay presencia humana o no
-//bool hayPresenciaHumana();
-
+//Hay que llamarla en cada vuelta del loop: pasa los datos del UART a la librería
 void actualizarSensorPresencia();
+
+//Devuelve true si llegó una trama válida hace menos de TIMEOUT_RADAR_MS
+bool radarConectado();
+
+//Diagnóstico: true si llegaron bytes (válidos o no) hace menos de TIMEOUT_RADAR_MS
+bool radarRecibeBytes();
+
+//Diagnóstico: total de bytes recibidos por el UART del radar desde el arranque
+uint32_t radarBytesRecibidos();
+
+//Devuelve la última lectura del radar. Si no está conectado, todo viene en false / 0
 datosPresenciaHumana leerPresenciaHumana();

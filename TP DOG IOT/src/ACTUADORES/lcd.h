@@ -11,4 +11,5 @@ extern LiquidCrystal_I2C lcd;
 void inicializarLCD();
 void setearLCD();
 void printearLCD(String mensaje, int linea);
-void escanearI2C();
+// Escanea el bus I2C indicado e imprime por Serial las direcciones que responden
+void escanearI2C(TwoWire &bus);

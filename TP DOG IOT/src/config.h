@@ -1,7 +1,6 @@
 #pragma once
 //LOS PINES SON TODOS INCORRECTOS Y SOLO SE USAN PARA DEBUG.
 #define PIN_SENSOR_GAS 36
-#define PIN_SENSOR_PRESENCIA 26
 #define BOTON_1 26
 #define BOTON_2 25
 #define BOTON_3 32
@@ -21,5 +20,7 @@
 #define SENSOR_LUZ 4
 #define RADAR_RX_PIN 16
 #define RADAR_TX_PIN 17
+#define TIMEOUT_RADAR_MS 1000   // Sin datos del radar por este tiempo = desconectado
+#define MAX_LECTURAS_RADAR 32   // Tramas máximas a procesar por llamada a actualizarSensorPresencia()
 
 #define UMBRAL_LUZ 500
