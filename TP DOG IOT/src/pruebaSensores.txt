@@ -1,0 +1,284 @@
+//Grupo 6 - Ducau, Jeiman & Zonis
+// PROGRAMA DE PRUEBA POR SERIAL (monitor a 115200 baudios). El programa principal está en main.txt
+//
+// Cada 1 segundo imprime el AHT (temperatura y humedad), el radar LD2410, el sensor de gas, el LDR,
+// el estado de los LEDs y los botones presionados. Lo mismo se muestra en el LCD, que cambia de
+// pantalla cada 3 segundos.
+// Los LEDs y el brillo del LCD se prueban mandando estos caracteres desde el monitor serie:
+//   1 -> prende/apaga el LED 1
+//   2 -> prende/apaga el LED 2
+//   e -> enciende los dos LEDs
+//   a -> apaga los dos LEDs
+//   b -> prende/apaga el brillo (luz de fondo) del LCD
+//   ? -> muestra la ayuda
+// Los botones 1 a 5 se prueban apretándolos: cada vez que uno cambia se avisa al instante.
+#include "main.h"
+#include <Arduino.h>
+#include <Wire.h>
+#include "SENSORES/humedad.h"
+#include "SENSORES/gas.h"
+#include "SENSORES/luz.h"
+#include "SENSORES/presencia_humana.h"
+#include "ACTUADORES/interfaz.h"
+#include "ACTUADORES/lcd.h"
+#include "config.h"
+
+#define PERIODO_IMPRESION_MS 1000
+#define CANTIDAD_BOTONES 5       // BOTON_1 a BOTON_5
+#define TIEMPO_ANTIRREBOTE_MS 30 // Una lectura nueva tiene que mantenerse este tiempo para contar como cambio
+#define COLUMNAS_LCD 16
+#define CANTIDAD_PANTALLAS_LCD 4
+#define PERIODO_PANTALLA_LCD_MS 3000 // Cada cuánto cambia la pantalla del LCD
+
+bool estadoLed1 = false;
+bool estadoLed2 = false;
+bool brilloLCD = true; // inicializarLCD() ya lo deja prendido con lcd.backlight()
+
+bool botonPresionado[CANTIDAD_BOTONES] = {};         // Estado filtrado (sin rebotes)
+bool ultimaLecturaBoton[CANTIDAD_BOTONES] = {};      // Última lectura tal cual del pin
+uint32_t instanteCambioBoton[CANTIDAD_BOTONES] = {}; // millis() del último cambio de la lectura
+
+String textoLed(bool encendido) {
+  return encendido ? "ENCENDIDO" : "APAGADO";
+}
+
+void imprimirAyuda() {
+  Serial.println();
+  Serial.println("================ Como probar ================");
+  Serial.println("Comandos (mandar el caracter):");
+  Serial.println("  1 -> prende/apaga el LED 1");
+  Serial.println("  2 -> prende/apaga el LED 2");
+  Serial.println("  e -> enciende los dos LEDs");
+  Serial.println("  a -> apaga los dos LEDs");
+  Serial.println("  b -> prende/apaga el brillo del LCD");
+  Serial.println("  ? -> muestra esta ayuda");
+  Serial.println("Botones 1 a 5: apretalos y se avisa al instante");
+  Serial.println("LCD: muestra los datos y cambia de pantalla cada 3 s");
+  Serial.println("=============================================");
+}
+
+void cambiarBrilloLCD() {
+  brilloLCD = !brilloLCD;
+  if (brilloLCD) {
+    lcd.backlight();   // Prende la luz de fondo
+  } else {
+    lcd.noBacklight(); // Apaga la luz de fondo
+  }
+  Serial.println(">> Brillo del LCD " + textoLed(brilloLCD));
+}
+
+void procesarComando(char comando) {
+  switch (comando) {
+    case '1':
+      estadoLed1 = !estadoLed1;
+      break;
+    case '2':
+      estadoLed2 = !estadoLed2;
+      break;
+    case 'e':
+      estadoLed1 = true;
+      estadoLed2 = true;
+      break;
+    case 'a':
+      estadoLed1 = false;
+      estadoLed2 = false;
+      break;
+    case 'b':
+      cambiarBrilloLCD();
+      return;
+    case '?':
+      imprimirAyuda();
+      return;
+    default:
+      Serial.println("Comando desconocido: " + String(comando) + " (? muestra la ayuda)");
+      return;
+  }
+
+  modificarEstadoLed(estadoLed1, LED_1);
+  modificarEstadoLed(estadoLed2, LED_2);
+  Serial.println(">> LED 1 " + textoLed(estadoLed1) + " | LED 2 " + textoLed(estadoLed2));
+}
+
+void leerComandosSerial() {
+  while (Serial.available()) {
+    char comando = tolower(Serial.read());
+    // El Enter del monitor serie manda \r y/o \n: se ignoran igual que los espacios
+    if (comando == '\r' || comando == '\n' || comando == ' ') continue;
+    procesarComando(comando);
+  }
+}
+
+// Hay que llamarla en cada vuelta del loop para no perderse los toques cortos
+void revisarBotones() {
+  estadoBotones botones = leerBotones();
+  bool lectura[CANTIDAD_BOTONES] = {botones.boton1, botones.boton2, botones.boton3, botones.boton4, botones.boton5};
+
+  for (int i = 0; i < CANTIDAD_BOTONES; i++) {
+    // Si la lectura cambió se reinicia el tiempo: el botón puede estar rebotando
+    if (lectura[i] != ultimaLecturaBoton[i]) {
+      ultimaLecturaBoton[i] = lectura[i];
+      instanteCambioBoton[i] = millis();
+    }
+    // Recién cuando la lectura se mantuvo TIEMPO_ANTIRREBOTE_MS se toma como un cambio real
+    if (lectura[i] != botonPresionado[i] && millis() - instanteCambioBoton[i] >= TIEMPO_ANTIRREBOTE_MS) {
+      botonPresionado[i] = lectura[i];
+      Serial.println(">> Boton " + String(i + 1) + (botonPresionado[i] ? " presionado" : " soltado"));
+    }
+  }
+}
+
+String textoBotones() {
+  String presionados = "";
+  for (int i = 0; i < CANTIDAD_BOTONES; i++) {
+    if (botonPresionado[i]) presionados += " " + String(i + 1);
+  }
+  if (presionados == "") return "ninguno presionado";
+  return "presionados" + presionados;
+}
+
+// Escribe una línea entera del LCD. Se completa con espacios para tapar lo que había antes, y si
+// el texto no cambió no se reescribe (escribir en el LCD es lento y frena el loop)
+void escribirLineaLCD(String texto, int linea) {
+  static String ultimoTexto[2];
+
+  if (texto.length() > COLUMNAS_LCD) texto = texto.substring(0, COLUMNAS_LCD);
+  while (texto.length() < COLUMNAS_LCD) texto += " ";
+
+  if (texto == ultimoTexto[linea]) return;
+  ultimoTexto[linea] = texto;
+  printearLCD(texto, linea);
+}
+
+String textoDistancia(bool hayObjetivo, float distancia) {
+  if (!hayObjetivo) return "--";
+  return String(distancia, 0) + "cm";
+}
+
+// Un lugar por botón: el número si está presionado o un guion si no. Ej: "1-3--"
+String mapaBotones() {
+  String mapa = "";
+  for (int i = 0; i < CANTIDAD_BOTONES; i++) {
+    mapa += botonPresionado[i] ? String(i + 1) : String("-");
+  }
+  return mapa;
+}
+
+void mostrarEnLCD(datosHumedad aht, datosPresenciaHumana radar, uint16_t gas, int luz) {
+  int pantalla = (millis() / PERIODO_PANTALLA_LCD_MS) % CANTIDAD_PANTALLAS_LCD;
+
+  switch (pantalla) {
+    case 0:
+      if (aht.conectado) {
+        escribirLineaLCD("Temp: " + String(aht.temperatura, 1) + " C", 0);
+        escribirLineaLCD("Humedad: " + String(aht.humedad, 1) + " %", 1);
+      } else {
+        escribirLineaLCD("AHT: sin datos", 0);
+        escribirLineaLCD("Revisar I2C", 1);
+      }
+      break;
+    case 1:
+      if (radar.conectado) {
+        escribirLineaLCD(radar.presencia ? "Presencia: SI" : "Presencia: NO", 0);
+        // M = objetivo en movimiento, Q = objetivo quieto
+        escribirLineaLCD("M:" + textoDistancia(radar.hayDinamico, radar.distanciaDinamica) +
+                         " Q:" + textoDistancia(radar.hayEstatico, radar.distanciaEstatica), 1);
+      } else {
+        escribirLineaLCD("Radar: sin datos", 0);
+        escribirLineaLCD("Revisar conexion", 1);
+      }
+      break;
+    case 2:
+      escribirLineaLCD("Gas: " + String(gas) + "/4095", 0);
+      escribirLineaLCD("Luz: " + String(luz) + " %", 1);
+      break;
+    case 3:
+      escribirLineaLCD("LEDs 1:" + String(estadoLed1 ? "ON" : "OFF") + " 2:" + String(estadoLed2 ? "ON" : "OFF"), 0);
+      escribirLineaLCD("Botones: " + mapaBotones(), 1);
+      break;
+  }
+}
+
+void imprimirSensores() {
+  datosHumedad aht = actualizarHumedad();
+  datosPresenciaHumana radar = leerPresenciaHumana();
+  uint16_t gas = lecturaAnalogicaGas();
+  int luz = porcentajeLuz();
+
+  Serial.println("--------------------------------------------");
+
+  if (aht.conectado) {
+    Serial.println("AHT       : " + String(aht.temperatura, 1) + " C | humedad " + String(aht.humedad, 1) + " %");
+  } else {
+    Serial.println("AHT       : sin respuesta (revisar conexion I2C)");
+  }
+
+  if (!radar.conectado) {
+    Serial.println("Presencia : radar sin datos (bytes recibidos: " + String(radarBytesRecibidos()) + ")");
+  } else if (!radar.presencia) {
+    Serial.println("Presencia : NO");
+  } else {
+    String texto = "Presencia : SI";
+    if (radar.hayDinamico) {
+      texto += " | en movimiento a " + String(radar.distanciaDinamica, 0) + " cm (energia " + String(radar.energiaDinamica, 0) + ")";
+    }
+    if (radar.hayEstatico) {
+      texto += " | quieto a " + String(radar.distanciaEstatica, 0) + " cm (energia " + String(radar.energiaEstatica, 0) + ")";
+    }
+    Serial.println(texto);
+  }
+
+  Serial.println("Gas       : " + String(gas) + " / 4095");
+  Serial.println("Luz (LDR) : " + String(luz) + " %");
+  Serial.println("LEDs      : LED 1 " + textoLed(estadoLed1) + " | LED 2 " + textoLed(estadoLed2));
+  Serial.println("Botones   : " + textoBotones());
+
+  // Lo mismo, resumido, en el LCD
+  mostrarEnLCD(aht, radar, gas, luz);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("\n===== PRUEBA DE SENSORES, LEDS, BOTONES Y LCD =====");
+
+  // Los dos buses I2C: el AHT puede estar conectado en cualquiera de los dos
+  Wire.begin(SDA_5V, SCL_5V);
+  Wire1.begin(SDA_3V3, SCL_3V3, 100000);
+
+  // Muestra qué responde en cada bus: el AHT tiene que aparecer en 0x38 y el LCD en 0x27 (bus de 5V)
+  Serial.println("--- Bus I2C de 3.3V (SDA " + String(SDA_3V3) + ", SCL " + String(SCL_3V3) + ") ---");
+  escanearI2C(Wire1);
+  Serial.println("--- Bus I2C de 5V (SDA " + String(SDA_5V) + ", SCL " + String(SCL_5V) + ") ---");
+  escanearI2C(Wire);
+
+  // El LCD usa Wire (bus de 5V) e inicializarLCD() le prende el brillo con lcd.backlight().
+  // Se inicializa primero para que muestre algo mientras arranca el resto
+  inicializarLCD();
+  escribirLineaLCD("Prueba sensores", 0);
+  escribirLineaLCD("Iniciando...", 1);
+
+  inicializarSensorHumedad();
+  inicializarSensorPresenciaHumana();
+  inicializarSensorGas();
+  inicializarLDR();
+  inicializarInterfaz(); // Botones y LEDs
+
+  // Arranca con los dos LEDs apagados
+  modificarEstadoLed(estadoLed1, LED_1);
+  modificarEstadoLed(estadoLed2, LED_2);
+
+  imprimirAyuda();
+}
+
+void loop() {
+  // El radar manda datos todo el tiempo: hay que leerlo en cada vuelta, sin delay
+  actualizarSensorPresencia();
+  leerComandosSerial();
+  revisarBotones();
+
+  // Imprime cada PERIODO_IMPRESION_MS sin bloquear el loop
+  static uint32_t ultimaImpresion = 0;
+  if (millis() - ultimaImpresion >= PERIODO_IMPRESION_MS) {
+    ultimaImpresion = millis();
+    imprimirSensores();
+  }
+}
