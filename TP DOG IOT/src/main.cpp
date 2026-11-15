@@ -7,6 +7,7 @@
 #include "MQTT.h"
 #include "CONEXION_WIFI.h"
 #include "CONEXION_BLUETOOTH.h"
+#include "UMBRALES.h"
 #include "SENSORES/humedad.h"
 #include "SENSORES/gas.h"
 #include "SENSORES/corriente.h"
@@ -24,8 +25,9 @@ energia datosCorrienteActual;
 int porcentajeLuzActual;
 bool estadoLDR;
 estadoBotones datosBotonActual;
-datosBluetooth datosBluetoothActual;    // Lo último que llegó por Bluetooth
 datosMqtt datosMqttActual;              // Último sensado armado para enviar al servidor
+umbralesAlarma umbralesActuales;        // Umbrales de la alarma, leídos de la EEPROM
+String textoGuardado = "";              // Lo que se muestra en el LCD en el estado GUARDANDO_DATOS
 
 bool botonCentralApretado = false;      // true solamente en la vuelta del loop en la que se aprieta el botón central
 bool botonCentralAnterior = false;      // Cómo estaba el botón central en la vuelta anterior
@@ -111,7 +113,7 @@ datosMqtt armarDatosMqtt() {
   datos.corriente = pasarARango(fabs(datosCorrienteActual.corriente), 0, 3.2);
   datos.presencia = datosPresenciaActual.presencia;
   datos.opto = false;  // El módulo del optoacoplador todavía no tiene funciones
-  datos.alarma = datos.gas > UMBRAL_GAS || datos.temperatura > UMBRAL_TEMPERATURA;
+  datos.alarma = datos.gas > umbralesActuales.gas || datos.temperatura > umbralesActuales.temperatura;
 
   return datos;
 }
@@ -127,17 +129,78 @@ String textoConexion(bool conectado) {
 
 // Muestra en el LCD el estado de las conexiones y las últimas lecturas
 void mostrarDatosEnLCD() {
-  String linea0 = "WIFI:" + textoConexion(wifiConectado()) + " MQTT:" + textoConexion(mqttConectado());
+  // Ejemplo: "W:OK M:OK BT:NO"
+  String linea0 = "W:" + textoConexion(wifiConectado()) + " M:" + textoConexion(mqttConectado()) + " BT:" + textoConexion(bluetoothConectado());
   // Ejemplo: "24.2C 52% G:100". Con los valores más largos ocupa justo las 16 columnas
   String linea1 = String(datosMqttActual.temperatura, 1) + "C " + String(datosHumedadActual.humedad, 0) + "% G:" + String(porcentajeGasActual);
   mostrarEnLCD(linea0, linea1);
 }
 
-// Apaga el Bluetooth, empieza a conectarse al WiFi y pasa al estado DATOS_MQTT
-void empezarEnvioDeDatos() {
-  finalizarBluetooth();
-  conectarWifi();
-  estadoActual = DATOS_MQTT;
+// Le envía a la aplicación los mismos datos que se envían por MQTT (menos la hora) y el estado de las conexiones.
+// Trama: <DATOS;temperatura;humedad;luz;gas;corriente;presencia;opto;alarma;wifi;mqtt>
+void enviarDatosBluetooth() {
+  String texto = "DATOS;" + String(datosMqttActual.temperatura, 2) + ";" + String(datosMqttActual.presion, 2) + ";"
+               + String(datosMqttActual.luz, 2) + ";" + String(datosMqttActual.gas, 2) + ";"
+               + String(datosMqttActual.corriente, 2) + ";" + String(datosMqttActual.presencia) + ";"
+               + String(datosMqttActual.opto) + ";" + String(datosMqttActual.alarma) + ";"
+               + String(wifiConectado()) + ";" + String(mqttConectado());
+  enviarBluetooth(texto);
+}
+
+// Le envía a la aplicación la configuración guardada en la EEPROM.
+// Trama: <CONFIG;umbralGas;umbralTemperatura;nombreRed>. La red va al final porque puede tener ';'
+void enviarConfiguracionBluetooth() {
+  credencialesWifi credenciales = leerCredencialesWifi();
+  String red = "";
+  if (credenciales.validas) {
+    red = credenciales.ssid;
+  }
+  enviarBluetooth("CONFIG;" + String(umbralesActuales.gas) + ";" + String(umbralesActuales.temperatura, 1) + ";" + red);
+}
+
+// Atiende una trama que llegó de la aplicación. Si se guardó algo pasa al estado GUARDANDO_DATOS
+void atenderBluetooth() {
+  datosBluetooth mensaje = leerDatosBluetooth();
+
+  if (!mensaje.validos) {
+    enviarBluetooth("ERROR;TRAMA");
+
+  } else if (mensaje.comando == "WIFI") {
+    // <WIFI;nombre;contraseña>
+    if (guardarCredencialesWifi(mensaje.campo1, mensaje.campo2)) {
+      enviarBluetooth("OK;WIFI");
+      enviarConfiguracionBluetooth();
+      conectarWifi();  // Se conecta a la red nueva (si estaba conectado a otra, se desconecta solo)
+      textoGuardado = "RED: " + mensaje.campo1;
+      tiempoAnterior = millis();
+      estadoActual = GUARDANDO_DATOS;
+    } else {
+      enviarBluetooth("ERROR;WIFI");
+    }
+
+  } else if (mensaje.comando == "UMBRALES") {
+    // <UMBRALES;gas;temperatura>
+    umbralesAlarma nuevos;
+    nuevos.gas = mensaje.campo1.toInt();
+    nuevos.temperatura = mensaje.campo2.toFloat();
+
+    if (mensaje.campo1.length() > 0 && mensaje.campo2.length() > 0 && guardarUmbrales(nuevos)) {
+      umbralesActuales = nuevos;
+      enviarBluetooth("OK;UMBRALES");
+      enviarConfiguracionBluetooth();
+      textoGuardado = "G:" + String(nuevos.gas) + " T:" + String(nuevos.temperatura, 1);
+      tiempoAnterior = millis();
+      estadoActual = GUARDANDO_DATOS;
+    } else {
+      enviarBluetooth("ERROR;UMBRALES");
+    }
+
+  } else if (mensaje.comando == "LEER") {
+    enviarConfiguracionBluetooth();
+
+  } else {
+    enviarBluetooth("ERROR;COMANDO");
+  }
 }
 
 void setup() {
@@ -146,6 +209,7 @@ void setup() {
   Wire.begin(SDA_5V, SCL_5V);
   Wire1.begin(SDA_3V3, SCL_3V3, 100000);
   EEPROM.begin(EEPROM_SIZE);
+  umbralesActuales = leerUmbrales();
 
   inicializarMqtt();
   inicializarBluetooth();
@@ -176,54 +240,26 @@ void loop() {
       if (millis() - tiempoAnterior < TIEMPO_MENSAJE_MS) {
         mostrarEnLCD("BIENVENIDO A ", "   IoT DOG");
       } else {
-        mostrarEnLCD("PRESIONE BOTON 1", "PARA CONTINUAR");
-        if (datosBotonActual.boton1) {
-          estadoActual = RECIBIENDO_DATOS_BLUETOOTH;
+        // Se conecta a la red guardada en la EEPROM. Si no hay ninguna, se carga desde la aplicación
+        if (!conectarWifi()) {
+          Serial.println("No hay red WiFi guardada: cargarla desde la aplicacion");
         }
-      }
-      break;
-
-    case RECIBIENDO_DATOS_BLUETOOTH:
-      mostrarEnLCD("BT: <RED;CLAVE>", "CENTRAL: SALIR");
-      if (SerialBT.available()) {
-        // Llegó algo por Bluetooth
-        datosBluetoothActual = leerDatosBluetooth();
-        estadoActual = INFORMACION_RECIBIDA;
-      } else if (botonCentralApretado) {
-        // Se sale sin cambiar nada: se usa la red que ya está guardada
-        empezarEnvioDeDatos();
-      }
-      break;
-
-    case INFORMACION_RECIBIDA:
-      if (datosBluetoothActual.validos) {
-        mostrarEnLCD("RED: " + datosBluetoothActual.ssid, "CENTRAL: GUARDAR");
-        if (botonCentralApretado) {
-          tiempoAnterior = millis();
-          estadoActual = GUARDANDO_DATOS;
-        }
-      } else {
-        mostrarEnLCD("TRAMA INVALIDA", "CENTRAL: VOLVER");
-        if (botonCentralApretado) {
-          estadoActual = RECIBIENDO_DATOS_BLUETOOTH;
-        }
+        estadoActual = DATOS_MQTT;
       }
       break;
 
     case GUARDANDO_DATOS:
-      mostrarEnLCD("GUARDANDO DATOS", "EN LA MEMORIA");
+      // La aplicación cambió algo de la EEPROM: se avisa en el LCD y se vuelve a enviar datos
+      mostrarEnLCD("GUARDADO", textoGuardado);
       if (millis() - tiempoAnterior >= TIEMPO_MENSAJE_MS) {
-        if (!guardarCredencialesWifi(datosBluetoothActual.ssid, datosBluetoothActual.password)) {
-          Serial.println("Error al guardar la red en la EEPROM");
-        }
-        empezarEnvioDeDatos();
+        estadoActual = DATOS_MQTT;
       }
       break;
 
     case DATOS_MQTT:
-      if(botonCentralApretado) {
-        // Se vuelve a la pantalla de Bluetooth para cambiar la red
-        estadoActual = RECIBIENDO_DATOS_BLUETOOTH;
+      // La aplicación puede cambiar la red o los umbrales en cualquier momento
+      if (hayMensajeBluetooth()) {
+        atenderBluetooth();
       }
       actualizarMqtt();
 
@@ -240,6 +276,7 @@ void loop() {
         datosMqttActual = armarDatosMqtt();
         modificarEstadoLed(datosMqttActual.alarma, LED_1);   // El LED 1 se prende cuando hay alarma
         modificarEstadoLed(!datosMqttActual.alarma, LED_2);  // El LED 2 se prende cuando no hay alarma
+        enviarDatosBluetooth();  // Si la aplicación está conectada le llegan los datos en vivo
       }
 
       // Cada INTERVALO_GUARDADO_MS se guarda el último sensado en la cola para enviarlo

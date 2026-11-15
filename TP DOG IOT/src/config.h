@@ -30,9 +30,11 @@
 
 #define UMBRAL_LUZ 50               // Porcentaje de luz (0 a 100). Por debajo de este valor se considera que está oscuro
 
-// ALARMA: se activa si se supera alguno de estos valores
-#define UMBRAL_GAS 50               // Gas, en la escala de 0 a 99
-#define UMBRAL_TEMPERATURA 40       // Temperatura, en grados
+// ALARMA: se activa si se supera alguno de los umbrales.
+// Los umbrales se guardan en la EEPROM y se cambian desde la aplicación.
+// Estos valores se usan solamente mientras no haya umbrales guardados
+#define UMBRAL_GAS_INICIAL 50           // Gas, en la escala de 0 a 99
+#define UMBRAL_TEMPERATURA_INICIAL 40   // Temperatura, en grados
 
 // Rango de cada sensor, para pasar las lecturas a los valores de 0 a 99 que espera el servidor
 #define GAS_MAXIMO 4095             // Lectura analógica máxima (12 bits)
@@ -51,21 +53,38 @@
 #define INTERVALO_ENVIO_MS 30000    // Cada cuánto se envía un sensado de la cola al servidor
 #define INTERVALO_CONEXION_MS 10000 // Tiempo entre un intento de conexión con el servidor y el siguiente
 
-// BLUETOOTH: la red WiFi se cambia enviando la trama <nombre;contraseña>     Ejemplo: <MiCasa;clave1234>
+// BLUETOOTH (BLE): siempre está prendido y la aplicación se conecta cuando quiere.
+// Los mensajes son tramas de texto. Ejemplos:
+//   App -> ESP32:  <WIFI;MiCasa;clave1234>   <UMBRALES;50;40>   <LEER>
+//   ESP32 -> App:  <DATOS;...>   <CONFIG;MiCasa;50;40.0>   <OK;WIFI>   <ERROR;WIFI>
 #define NOMBRE_BLUETOOTH "IoT DOG"  // Nombre con el que aparece el ESP32 en el celular
 #define INICIO_TRAMA '<'
 #define SEPARADOR_TRAMA ';'
 #define FIN_TRAMA '>'
-#define TIMEOUT_BLUETOOTH_MS 50     // Espera a que termine de llegar un mensaje
+#define LARGO_MAXIMO_TRAMA 128      // Caracteres máximos de una trama recibida (la más larga es la del WiFi: 107)
+// UUID del servicio y de las características (es el "Nordic UART Service", el estándar para mandar texto por BLE)
+#define UUID_SERVICIO_BLE "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+#define UUID_RX_BLE "6e400002-b5a3-f393-e0a9-e50e24dcca9e"   // La aplicación escribe acá
+#define UUID_TX_BLE "6e400003-b5a3-f393-e0a9-e50e24dcca9e"   // El ESP32 le avisa a la aplicación acá (notify)
+#define MTU_BLE 185                 // Bytes máximos por mensaje BLE (lo negocia el celular al conectarse)
 
 // WIFI: las credenciales se guardan en la EEPROM en estas direcciones
-#define EEPROM_SIZE 128             // Bytes de EEPROM que se reservan (las credenciales ocupan 98)
+#define EEPROM_SIZE 128             // Bytes de EEPROM que se reservan (credenciales y umbrales ocupan 107)
 #define MARCA_CREDENCIALES 0xA5     // Valor guardado en DIRECCION_MARCA cuando hay credenciales
 #define DIRECCION_MARCA 0           // Ocupa 1 byte
 #define DIRECCION_SSID 1            // Ocupa 33 bytes: 32 caracteres + el fin del texto
 #define DIRECCION_PASSWORD 34       // Ocupa 64 bytes: 63 caracteres + el fin del texto
 #define LARGO_MAXIMO_SSID 32
 #define LARGO_MAXIMO_PASSWORD 63
+
+// UMBRALES: se guardan en la EEPROM después de las credenciales
+#define MARCA_UMBRALES 0x5A                 // Valor guardado en DIRECCION_MARCA_UMBRALES cuando hay umbrales
+#define DIRECCION_MARCA_UMBRALES 98         // Ocupa 1 byte
+#define DIRECCION_UMBRAL_GAS 99             // Ocupa 4 bytes (int)
+#define DIRECCION_UMBRAL_TEMPERATURA 103    // Ocupa 4 bytes (float)
+#define UMBRAL_GAS_MAXIMO 99                // Rango de umbrales que se acepta desde la aplicación
+#define UMBRAL_TEMPERATURA_MINIMA -20
+#define UMBRAL_TEMPERATURA_MAXIMA 100
 
 // MQTT (EMQX Cloud con SSL/TLS)
 #define NUMERO_DISPOSITIVO 136      // Número de grupo: 5A 11x, 5B 12x, 5C 13x

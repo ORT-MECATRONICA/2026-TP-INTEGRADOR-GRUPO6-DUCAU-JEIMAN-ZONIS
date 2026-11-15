@@ -1,28 +1,39 @@
 //Grupo 6 - Ducau, Jeiman & Zonis
 #pragma once
 #include <Arduino.h>
-#include <BluetoothSerial.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 #include "config.h"
 
-// Por Bluetooth se recibe la red WiFi a la que se tiene que conectar el ESP32.
-// Tiene que llegar con esta trama:   <nombre;contraseña>     Ejemplo: <MiCasa;clave1234>
-
-// Objeto Bluetooth. En main.cpp se usa solamente para consultar SerialBT.available()
-extern BluetoothSerial SerialBT;
+// El Bluetooth (BLE) queda prendido todo el tiempo: la aplicación se conecta cuando quiere
+// y, si se desconecta, el ESP32 vuelve a aparecer en el celular solo.
+// Los mensajes son tramas de texto:   <COMANDO;campo1;campo2>
+//   <WIFI;nombre;contraseña>      Cambia la red WiFi. La contraseña puede tener ';' pero el nombre no
+//   <UMBRALES;gas;temperatura>    Cambia los umbrales de la alarma.   Ejemplo: <UMBRALES;50;40.5>
+//   <LEER>                        Pide la configuración guardada
 
 struct datosBluetooth {
-    String ssid;       // Nombre de la red que llegó en la trama
-    String password;   // Contraseña que llegó en la trama
+    String comando;    // WIFI, UMBRALES o LEER
+    String campo1;     // Primer valor después del comando (puede venir vacío)
+    String campo2;     // Segundo valor después del comando (puede venir vacío)
     bool validos;      // false si lo que llegó no respeta la trama
 };
 
 // Prende el Bluetooth. El ESP32 aparece en el celular con el nombre NOMBRE_BLUETOOTH
 void inicializarBluetooth();
 
-// Lee lo que llegó por Bluetooth y lo separa según la trama.
-// Hay que llamarla solamente cuando SerialBT.available() avisa que llegó algo.
-// Espera TIMEOUT_BLUETOOTH_MS a que termine de llegar el mensaje
+// Devuelve true si la aplicación está conectada
+bool bluetoothConectado();
+
+// Devuelve true si llegó una trama completa que todavía no se leyó
+bool hayMensajeBluetooth();
+
+// Devuelve la última trama que llegó, separada en campos.
+// Hay que llamarla solamente cuando hayMensajeBluetooth() avisa que llegó algo
 datosBluetooth leerDatosBluetooth();
 
-// Apaga el Bluetooth, para dejarle la memoria al WiFi
-void finalizarBluetooth();
+// Le envía a la aplicación el texto entre '<' y '>'. Ejemplo: enviarBluetooth("OK;WIFI") envía <OK;WIFI>.
+// Si la aplicación no está conectada no hace nada
+void enviarBluetooth(String texto);
