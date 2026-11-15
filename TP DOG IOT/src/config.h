@@ -21,10 +21,12 @@
 #define SCL_5V 19
 
 #define SENSOR_LUZ 34
-#define RADAR_RX_PIN 16
-#define RADAR_TX_PIN 17
+#define RADAR_RX_PIN 17         // Pin del ESP que recibe: va al TX del radar
+#define RADAR_TX_PIN 16         // Pin del ESP que transmite: va al RX del radar
 #define TIMEOUT_RADAR_MS 1000   // Sin datos del radar por este tiempo = desconectado
 #define MAX_LECTURAS_RADAR 32   // Tramas máximas a procesar por llamada a actualizarSensorPresencia()
+#define RADAR_PUERTA_MAXIMA 8   // Alcance del radar: cada puerta son 0,75 m (8 = 6 m, el máximo)
+#define RADAR_TIEMPO_SIN_PRESENCIA_S 5 // Segundos que el radar sigue marcando presencia después de dejar de detectar
 
 #define UMBRAL_LUZ 50               // Porcentaje de luz (0 a 100). Por debajo de este valor se considera que está oscuro
 
@@ -34,6 +36,10 @@
 
 // Rango de cada sensor, para pasar las lecturas a los valores de 0 a 99 que espera el servidor
 #define GAS_MAXIMO 4095             // Lectura analógica máxima (12 bits)
+// Calibración del potenciómetro de gas: lectura del pin (0 a 4095) en cada extremo del recorrido.
+// Para ajustarla, mirar la línea "Gas: lectura ..." del monitor serie con el potenciómetro en cada tope
+#define GAS_LECTURA_MINIMA 2450     // Lectura con el potenciómetro en el mínimo (se muestra como 0)
+#define GAS_LECTURA_MAXIMA 3700     // Lectura con el potenciómetro en el máximo (se muestra como 100)
 #define PRESION_MINIMA 300          // hPa. Rango de medición del BMP280
 #define PRESION_MAXIMA 1100         // hPa
 #define CORRIENTE_MAXIMA 3200       // mA. Corriente máxima que mide el INA219

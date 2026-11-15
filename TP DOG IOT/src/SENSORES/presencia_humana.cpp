@@ -15,12 +15,25 @@ void inicializarSensorPresenciaHumana() {
     Serial1.setRxBufferSize(1024);
     Serial1.begin(256000, SERIAL_8N1, RADAR_RX_PIN, RADAR_TX_PIN);
     delay(500); // Darle tiempo al sensor para iniciar (como en el código de prueba)
+    if (Serial1.available() == 0) {
+      Serial.println(F("Radar: no llegan datos (revisar alimentacion y que TX y RX no esten cruzados)"));
+    }
 
-    sensorPresencia.debug(Serial); // Imprime la version de firmware y las respuestas a los comandos
+    sensorPresencia.debug(Serial); // Imprime los mensajes de la libreria
     if (sensorPresencia.begin(Serial1)) {
-      Serial.println(F("\nOK"));
+      Serial.println(F("\nRadar OK"));
+      // Alcance para objetivos en movimiento y quietos. Queda guardado en el radar
+      if (!sensorPresencia.setMaxValues(RADAR_PUERTA_MAXIMA, RADAR_PUERTA_MAXIMA, RADAR_TIEMPO_SIN_PRESENCIA_S)) {
+        Serial.println(F("\nNo se pudo configurar el alcance del radar"));
+      }
+      // Diagnostico: imprime la configuracion guardada en el radar (distancia maxima y
+      // sensibilidad de cada puerta). Con sensibilidad 100 esa puerta no detecta nunca
+      if (!sensorPresencia.requestCurrentConfiguration()) {
+        Serial.println(F("\nNo se pudo leer la configuracion del radar"));
+      }
+      Serial.println();
     } else {
-      Serial.println(F("\nError de conexion radar"));
+      Serial.println(F("\nEl radar no responde a los comandos (revisar el cable del TX del ESP al RX del radar)"));
     }
 }
 

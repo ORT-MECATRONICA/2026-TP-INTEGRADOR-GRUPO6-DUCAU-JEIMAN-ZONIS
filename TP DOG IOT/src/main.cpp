@@ -7,7 +7,6 @@
 #include "MQTT.h"
 #include "CONEXION_WIFI.h"
 #include "CONEXION_BLUETOOTH.h"
-#include "SENSORES/temperatura.h"
 #include "SENSORES/humedad.h"
 #include "SENSORES/gas.h"
 #include "SENSORES/corriente.h"
@@ -18,9 +17,8 @@
 #include "config.h"
 
 
-datosTemperatura datosTemperaturaActual;
-datosHumedad datosHumedadActual;
-uint16_t lecturaGasActual;
+datosHumedad datosHumedadActual;        // Temperatura y humedad del AHT
+int porcentajeGasActual;                // Gas de 0 a 100
 datosPresenciaHumana datosPresenciaActual;
 energia datosCorrienteActual;
 int porcentajeLuzActual;
@@ -71,9 +69,12 @@ void actualizarBotones() {
 // Lee todos los sensores y deja las lecturas en las variables de arriba
 void leerSensores() {
   datosHumedadActual = actualizarHumedad();
-  lecturaGasActual = lecturaAnalogicaGas();
+  porcentajeGasActual = porcentajeGas();
+  // Sirve para calibrar el potenciómetro (GAS_LECTURA_MINIMA y GAS_LECTURA_MAXIMA en config.h)
+  Serial.println("Gas: lectura " + String(lecturaAnalogicaGas()) + " -> " + String(porcentajeGasActual) + " %");
   datosPresenciaActual = leerPresenciaHumana();
   datosCorrienteActual = actualizarDatosEnergia();
+  Serial.println("Corriente: lectura " + String(datosCorrienteActual.corriente, 2) + " | " + String(datosCorrienteActual.voltaje, 2) + " V");
   porcentajeLuzActual = porcentajeLuz();
   estadoLDR = LDRDigital();
 }
@@ -99,21 +100,15 @@ datosMqtt armarDatosMqtt() {
 
   datos.hora = 0;  // La hora la completa guardarDatosMqtt()
 
-  // La temperatura se toma del AHT. Si no está conectado se usa la del BMP280
-  if (datosHumedadActual.conectado) {
-    datos.temperatura = datosHumedadActual.temperatura;
-  } else {
-    datos.temperatura = datosTemperaturaActual.temperatura;
-  }
-  // Si el sensor no respondió la lectura no es un número: queda en 0
-  if (isnan(datos.temperatura)) {
-    datos.temperatura = 0;
-  }
+  // La temperatura y la humedad salen del AHT. Si no respondió, las dos quedan en 0
+  datos.temperatura = datosHumedadActual.temperatura;
 
-  datos.presion = pasarARango(datosTemperaturaActual.presion, PRESION_MINIMA, PRESION_MAXIMA);
+  // En el parámetro de presión se envía la humedad (el servidor espera las mismas claves)
+  datos.presion = pasarARango(datosHumedadActual.humedad, 0, 100);
   datos.luz = pasarARango(porcentajeLuzActual, 0, 100);
-  datos.gas = pasarARango(lecturaGasActual, 0, GAS_MAXIMO);
-  datos.corriente = pasarARango(datosCorrienteActual.corriente, 0, CORRIENTE_MAXIMA);
+  datos.gas = pasarARango(porcentajeGasActual, 0, 100);
+  // Mapeo fijo de la corriente: se toma sin signo y en amperes. De 0 a 3.2 A se envía como 0 a 99
+  datos.corriente = pasarARango(fabs(datosCorrienteActual.corriente), 0, 3.2);
   datos.presencia = datosPresenciaActual.presencia;
   datos.opto = false;  // El módulo del optoacoplador todavía no tiene funciones
   datos.alarma = datos.gas > UMBRAL_GAS || datos.temperatura > UMBRAL_TEMPERATURA;
@@ -133,7 +128,8 @@ String textoConexion(bool conectado) {
 // Muestra en el LCD el estado de las conexiones y las últimas lecturas
 void mostrarDatosEnLCD() {
   String linea0 = "WIFI:" + textoConexion(wifiConectado()) + " MQTT:" + textoConexion(mqttConectado());
-  String linea1 = "T:" + String(datosMqttActual.temperatura, 1) + " H:" + String(datosHumedadActual.humedad, 0) + " G:" + String(datosMqttActual.gas, 0);
+  // Ejemplo: "24.2C 52% G:100". Con los valores más largos ocupa justo las 16 columnas
+  String linea1 = String(datosMqttActual.temperatura, 1) + "C " + String(datosHumedadActual.humedad, 0) + "% G:" + String(porcentajeGasActual);
   mostrarEnLCD(linea0, linea1);
 }
 
@@ -167,6 +163,13 @@ void setup() {
 void loop() {
   actualizarSensorPresencia();
   actualizarBotones();
+
+  // DIAGNOSTICO TEMPORAL DEL LDR
+  static unsigned long tiempoDiagnostico = 0;
+  if (millis() - tiempoDiagnostico >= 1000) {
+    tiempoDiagnostico = millis();
+    Serial.println("DIAG LDR: pin34=" + String(analogRead(34)) + " pin4=" + String(analogRead(4)) + " wifi=" + String(wifiConectado()) + " pin35=" + String(analogRead(35)) + " pin39=" + String(analogRead(39)) + " pin36=" + String(analogRead(36)) + " mV34=" + String(analogReadMilliVolts(34)));
+  }
 
   switch (estadoActual) {
     case INICIO:
@@ -235,8 +238,8 @@ void loop() {
         tiempoSensado = millis();
         leerSensores();
         datosMqttActual = armarDatosMqtt();
-        modificarEstadoLed(estadoLDR, LED_1);               // El LED 1 se prende cuando está oscuro
-        modificarEstadoLed(datosMqttActual.alarma, LED_2);  // El LED 2 se prende cuando hay alarma
+        modificarEstadoLed(datosMqttActual.alarma, LED_1);   // El LED 1 se prende cuando hay alarma
+        modificarEstadoLed(!datosMqttActual.alarma, LED_2);  // El LED 2 se prende cuando no hay alarma
       }
 
       // Cada INTERVALO_GUARDADO_MS se guarda el último sensado en la cola para enviarlo

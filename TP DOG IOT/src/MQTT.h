@@ -11,7 +11,7 @@
 struct datosMqtt {
     long hora;           // Hora del sensado. La completa guardarDatosMqtt(): no hace falta cargarla
     float temperatura;   // En grados
-    float presion;       // Entre 0 y 99
+    float presion;       // Entre 0 y 99. En este parámetro se envía la humedad
     float luz;           // Entre 0 y 99: cuanta más luz, más alto
     float gas;           // Entre 0 y 99
     float corriente;     // Entre 0 y 99

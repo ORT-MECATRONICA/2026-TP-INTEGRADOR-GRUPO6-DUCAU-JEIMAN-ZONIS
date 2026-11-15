@@ -14,6 +14,14 @@
 // Los botones 1 a 5 se prueban apretándolos: cada vez que uno cambia se avisa al instante.
 #include "main.h"
 #include <Arduino.h>
+
+
+
+
+
+
+
+
 #include <Wire.h>
 #include "SENSORES/humedad.h"
 #include "SENSORES/gas.h"
