@@ -1,11 +1,11 @@
 //Grupo 6 - Ducau, Jeiman & Zonis
 #pragma once
 #include <Arduino.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
 #include "config.h"
+
+// Se usa la librería NimBLE y no la BLE que trae Arduino: la de Arduino deja reservada la memoria
+// del Bluetooth clásico y no queda RAM para la conexión segura (SSL) de MQTT
 
 // El Bluetooth (BLE) queda prendido todo el tiempo: la aplicación se conecta cuando quiere
 // y, si se desconecta, el ESP32 vuelve a aparecer en el celular solo.

@@ -55,6 +55,8 @@ bool conectarMqtt() {
         // rc: -4 el servidor no respondió, -2 no se llegó al servidor, 4 usuario o contraseña mal, 5 no autorizado
         Serial.print("MQTT: fallo la conexion, rc=");
         Serial.println(mqttClient.state());
+        // La conexión segura (SSL) necesita unos 45 KB de RAM libres. Si hay menos, falla con rc=-2
+        Serial.println("RAM libre: " + String(ESP.getFreeHeap()) + " bytes (bloque mas grande: " + String(ESP.getMaxAllocHeap()) + ")");
         return false;
     }
 }

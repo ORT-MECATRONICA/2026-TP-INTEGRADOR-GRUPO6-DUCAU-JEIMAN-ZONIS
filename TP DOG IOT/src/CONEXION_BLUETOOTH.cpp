@@ -4,8 +4,8 @@
 // Las funciones de "callbacks" las llama la librería BLE desde su propia tarea, no desde el loop.
 // Por eso lo que llega se copia a tramaRecibida con la protección "candado" y el loop lo lee después.
 
-static BLEServer* servidor = NULL;
-static BLECharacteristic* caracteristicaTx = NULL;   // Por acá el ESP32 le envía datos a la aplicación
+static NimBLEServer* servidor = NULL;
+static NimBLECharacteristic* caracteristicaTx = NULL;   // Por acá el ESP32 le envía datos a la aplicación
 static uint16_t idConexion = 0;                      // Número de la conexión actual (para preguntar el MTU)
 
 static char tramaArmando[LARGO_MAXIMO_TRAMA];        // Trama que está llegando de a pedazos (solo la usa la tarea BLE)
@@ -17,13 +17,13 @@ static volatile bool tramaNueva = false;             // true cuando hay una tram
 static portMUX_TYPE candado = portMUX_INITIALIZER_UNLOCKED;
 
 // Avisos de conexión y desconexión de la aplicación
-class CallbacksServidor : public BLEServerCallbacks {
-    void onConnect(BLEServer* servidorBle, esp_ble_gatts_cb_param_t* parametros) {
-        idConexion = parametros->connect.conn_id;
+class CallbacksServidor : public NimBLEServerCallbacks {
+    void onConnect(NimBLEServer* servidorBle, ble_gap_conn_desc* conexion) {
+        idConexion = conexion->conn_handle;
         Serial.println("Bluetooth: aplicacion conectada");
     }
 
-    void onDisconnect(BLEServer* servidorBle) {
+    void onDisconnect(NimBLEServer* servidorBle) {
         Serial.println("Bluetooth: aplicacion desconectada");
         // Vuelve a aparecer en el celular para que la aplicación se pueda conectar de nuevo
         servidorBle->startAdvertising();
@@ -31,12 +31,13 @@ class CallbacksServidor : public BLEServerCallbacks {
 };
 
 // Aviso de que la aplicación escribió algo. Un mensaje largo puede llegar en varios pedazos
-class CallbacksRx : public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic* caracteristica) {
-        String valor = String(caracteristica->getValue().c_str());
+class CallbacksRx : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* caracteristica) {
+        NimBLEAttValue valor = caracteristica->getValue();
+        const uint8_t* letras = valor.data();
 
         for (int i = 0; i < valor.length(); i++) {
-            char letra = valor[i];
+            char letra = (char)letras[i];
 
             if (letra == INICIO_TRAMA) {
                 // Empieza una trama nueva: lo anterior se descarta
@@ -64,30 +65,30 @@ class CallbacksRx : public BLECharacteristicCallbacks {
 };
 
 void inicializarBluetooth() {
-    BLEDevice::init(NOMBRE_BLUETOOTH);
-    BLEDevice::setMTU(MTU_BLE);
+    NimBLEDevice::init(NOMBRE_BLUETOOTH);
+    NimBLEDevice::setMTU(MTU_BLE);
 
-    servidor = BLEDevice::createServer();
+    servidor = NimBLEDevice::createServer();
     servidor->setCallbacks(new CallbacksServidor());
 
-    BLEService* servicio = servidor->createService(UUID_SERVICIO_BLE);
+    NimBLEService* servicio = servidor->createService(UUID_SERVICIO_BLE);
 
     // Característica donde escribe la aplicación
-    BLECharacteristic* caracteristicaRx = servicio->createCharacteristic(
-        UUID_RX_BLE, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+    NimBLECharacteristic* caracteristicaRx = servicio->createCharacteristic(
+        UUID_RX_BLE, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
     caracteristicaRx->setCallbacks(new CallbacksRx());
 
-    // Característica por la que el ESP32 le avisa a la aplicación
-    caracteristicaTx = servicio->createCharacteristic(UUID_TX_BLE, BLECharacteristic::PROPERTY_NOTIFY);
-    caracteristicaTx->addDescriptor(new BLE2902());   // Necesario para que la aplicación pueda activar los avisos
+    // Característica por la que el ESP32 le avisa a la aplicación.
+    // NimBLE le agrega solo el descriptor que la aplicación usa para activar los avisos
+    caracteristicaTx = servicio->createCharacteristic(UUID_TX_BLE, NIMBLE_PROPERTY::NOTIFY);
 
     servicio->start();
 
     // Empieza a aparecer en el celular, mostrando el servicio para que la aplicación lo encuentre
-    BLEAdvertising* anuncio = BLEDevice::getAdvertising();
+    NimBLEAdvertising* anuncio = NimBLEDevice::getAdvertising();
     anuncio->addServiceUUID(UUID_SERVICIO_BLE);
     anuncio->setScanResponse(true);
-    BLEDevice::startAdvertising();
+    NimBLEDevice::startAdvertising();
 }
 
 bool bluetoothConectado() {
