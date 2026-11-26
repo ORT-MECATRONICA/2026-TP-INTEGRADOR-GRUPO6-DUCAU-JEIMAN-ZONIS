@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#fff}</style></head><body>
+<svg viewBox="0 0 680 320" width="680" height="320" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial" font-size="11">
+  <defs><marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker></defs>
+  <text x="10" y="14" font-size="10" fill="#6b7280" font-weight="600">ALIMENTACIÓN</text>
+  <g stroke="#374151" stroke-width="1.4" fill="none" marker-end="url(#f)">
+    <path d="M95,42 H118"/><path d="M215,42 H238"/><path d="M310,42 H333"/><path d="M405,42 H428"/><path d="M500,42 H523"/>
+    <path d="M512,84 V46"/>
+    <path d="M582,64 V122 H372 V138"/>
+  </g>
+  <g font-weight="600" text-anchor="middle">
+    <rect x="10" y="22" width="85" height="40" rx="6" fill="#fef3c7" stroke="#b45309"/><text x="52" y="38">Fuente 12 V</text><text x="52" y="52" font-weight="400" font-size="9.5">bornera P2</text>
+    <rect x="120" y="22" width="95" height="40" rx="6" fill="#e0f2fe" stroke="#0369a1"/><text x="167" y="38">INA219</text><text x="167" y="52" font-weight="400" font-size="9.5">mide consumo</text>
+    <rect x="240" y="22" width="70" height="40" rx="6" fill="#f3f4f6" stroke="#6b7280"/><text x="275" y="38">D2</text><text x="275" y="52" font-weight="400" font-size="9.5">1N4007</text>
+    <rect x="335" y="22" width="70" height="40" rx="6" fill="#f3f4f6" stroke="#6b7280"/><text x="370" y="38">7809</text><text x="370" y="52" font-weight="400" font-size="9.5">12 V → 9 V</text>
+    <rect x="430" y="22" width="70" height="40" rx="6" fill="#f3f4f6" stroke="#6b7280"/><text x="465" y="38">7805</text><text x="465" y="52" font-weight="400" font-size="9.5">9 V → 5 V</text>
+    <rect x="525" y="22" width="115" height="40" rx="6" fill="#f3f4f6" stroke="#6b7280"/><text x="582" y="38">Interruptor U6</text><text x="582" y="52" font-weight="400" font-size="9.5">línea de 5 V</text>
+    <rect x="452" y="84" width="120" height="26" rx="6" fill="#fef3c7" stroke="#b45309"/><text x="512" y="101" font-size="10">USB tipo B (5 V)</text>
+  </g>
+  <text x="10" y="132" font-size="10" fill="#6b7280" font-weight="600">CONTROL Y PERIFÉRICOS</text>
+  <g stroke="#0f766e" stroke-width="1.2" fill="none">
+    <path d="M150,152 H260"/><path d="M150,182 H260"/><path d="M150,212 H260"/><path d="M150,242 H260"/><path d="M150,272 H260"/>
+    <path d="M484,212 H520"/><path d="M484,252 H520"/><path d="M484,292 H520"/>
+  </g>
+  <rect x="260" y="140" width="224" height="150" rx="8" fill="#ccfbf1" stroke="#0f766e" stroke-width="2"/>
+  <text x="372" y="190" text-anchor="middle" font-weight="700" font-size="15">ESP32 DevKitC</text>
+  <text x="372" y="210" text-anchor="middle" font-size="10.5">VIN 5 V · regulador interno 3,3 V</text>
+  <text x="372" y="226" text-anchor="middle" font-size="10.5">WiFi 2,4 GHz · Bluetooth LE</text>
+  <g font-size="10" text-anchor="middle">
+    <rect x="10" y="140" width="140" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="80" y="156">AHT10 + INA219 (I2C 3,3 V)</text>
+    <rect x="10" y="170" width="140" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="80" y="186">LCD 16×2 (I2C 5 V)</text>
+    <rect x="10" y="200" width="140" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="80" y="216">Radar LD2410C (UART)</text>
+    <rect x="10" y="230" width="140" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="80" y="246">MQ-2 (GPIO36) · LDR (GPIO34)</text>
+    <rect x="10" y="260" width="140" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="80" y="276">Pulsadores 1 a 5</text>
+    <rect x="520" y="200" width="150" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="595" y="216">LEDs 1 y 2</text>
+    <rect x="520" y="240" width="150" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="595" y="256">Relé (Q1 + U5) → P3</text>
+    <rect x="520" y="280" width="150" height="24" rx="4" fill="#fff" stroke="#9ca3af"/><text x="595" y="296">App (BLE) · servidor MQTT</text>
+  </g>
+</svg></body></html>
